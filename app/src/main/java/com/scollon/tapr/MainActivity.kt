@@ -1,26 +1,29 @@
 package com.scollon.tapr
 
+import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.media.MediaRecorder
 import android.os.Bundle
-import android.os.Handler
 import android.util.Half.EPSILON
 import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.scollon.amputil.Amp
 import kotlinx.android.synthetic.main.activity_main.*
-import java.io.IOException
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
+
+    private val PERMISSION_REQUEST_CODE = 200
 
     private lateinit var sensorManager: SensorManager
     private var sensor: Sensor? = null
@@ -32,9 +35,28 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val deltaRotationVector = FloatArray(4) { 0f }
     private var timestamp: Float = 0f
 
+
+    val runnable = Runnable {
+        updateTv()
+        determineTap()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        Amp.startEverything(runnable, 100)
+
+//asking user for permisson
+      if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_REQUEST_CODE
+            )
+        }
 
         val mSensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         val mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -76,7 +98,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         having every X,Y and Z acceleration will help us determine
         whether the phone was tapper from the side, top, botton or back
          */
-        tvX.text = "laX: " + linear_acceleration[0].toInt().toString()
+        tvX.text = linear_acceleration[0].toInt().toString()
         tvY.text = "laY: " + linear_acceleration[1].toInt().toString()
         tvZ.text = "laZ: " + linear_acceleration[2].toInt().toString()
 
@@ -151,15 +173,40 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         sensor?.also { sensor ->
             sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
         }
-
+        Amp.startRecorder()
     }
 
     override fun onPause() {
         super.onPause()
-        sensorManager.unregisterListener(this)
+        try {
+            sensorManager.unregisterListener(this)
+        }catch (e: Exception){
 
-        super.onPause();
+            Log.e("rotacja", "dziwna rotacja")
 
+        }
+        Amp.stopRecorder()
+    }
+    fun updateTv(){
+        val dBlvl = Amp.soundDb().toInt()
+        tv_dBells.text = dBlvl.toString()
+
+        val ampLvl = Amp.getAmplitudeEMA().toInt()
+
+        tv_amplifier.text = "AmplitudeEMA: " + ampLvl.toString()
+
+    }
+
+    fun determineTap(){
+
+
+        var speedX = Integer.parseInt(tvX.text as String)
+        var loudness = Integer.parseInt(tv_dBells.text as String)
+
+        if(speedX > 2 && loudness > 60){
+            Toast.makeText(this, "jebło", Toast.LENGTH_LONG).show()
+
+        }
     }
 
 
