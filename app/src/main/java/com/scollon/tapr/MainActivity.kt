@@ -16,9 +16,12 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.scollon.amputil.Amp
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.coroutines.*
+import java.lang.Runnable
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
+import java.util.concurrent.TimeUnit
 
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
@@ -69,7 +72,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL)
 
 
-        val sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         val gyroSensor: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         sensorManager.registerListener(this, gyroSensor, SensorManager.SENSOR_DELAY_NORMAL)
 
@@ -104,9 +107,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         having every X,Y and Z acceleration will help us determine
         whether the phone was tapper from the side, top, botton or back
          */
-        tvX.text = gravity[0].toString()
-        tvY.text = "laY: " + linear_acceleration[1].toInt().toString()
-        tvZ.text = "laZ: " + linear_acceleration[2].toInt().toString()
+        tvX.text = Math.abs(linear_acceleration[0].toInt()).toString()
+        tvY.text = Math.abs(linear_acceleration[1].toInt()).toString()
+        tvZ.text = Math.abs(linear_acceleration[2].toInt()).toString()
 
 
         //gyroscope here
@@ -124,9 +127,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 var axisY2: Int = axisY.toInt()
                 var axisZ2: Int = axisZ.toInt()
 
-                tvgX.text = axisX2.toString()
-                tvgY.text = axisY2.toString()
-                tvgZ.text = axisZ2.toString()
+
 
 
                 // Calculate the angular speed of the sample
@@ -139,9 +140,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     axisY /= omegaMagnitude
                     axisZ /= omegaMagnitude
 
-
                 }
-
+                tvgX.text = Math.abs(axisX.toInt()).toString()
+                tvgY.text = Math.abs(axisY.toInt()).toString()
+                tvgZ.text = Math.abs(axisZ.toInt()).toString()
                 // Integrate around this axis with the angular speed by the timestep
                 // in order to get a delta rotation from this sample over the timestep
                 // We will convert this axis-angle representation of the delta rotation
@@ -202,24 +204,38 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         var speedXNew = (tvX.text as String).toDouble()
         var gyroZNew = Integer.parseInt(tvgZ.text as String)
         var gyroXNew = Integer.parseInt(tvgX.text as String)
-        var loudnessNew = Amp.getAmplitudeEMA().toInt()
+
 
         //compares curent stats with stats from 100ms ago
-        if(loudnessOld != 0){
-          if((speedXNew > (speedXOld+0.2))  && loudnessNew > (loudnessOld+750) && (gyroXNew > gyroXOld || gyroZNew > gyroXOld)){
 
-              Toast.makeText(this, "jebło", Toast.LENGTH_LONG).show()
+        if(loudnessOld != 0){
+                //the acceleration happens before the noise giving palm hit therefore we have see if it accelerates first and then if it
+                // generaten loud enough sound  (40ms is a random number with which I thought it would work (and it kinda does))
+                    // new it's time to machine learn the shit out of this (but lemme add more sensor to get more stats)
+          if(speedXNew > speedXOld &&(gyroZNew > gyroZOld)){
+
+              CoroutineScope(Dispatchers.IO).launch    {
+                  delay(TimeUnit.MILLISECONDS.toMillis(40))
+                  withContext(Dispatchers.Main) {
+                      // this is called after 0.5 sec
+                      var loudnessNew = Amp.getAmplitudeEMA().toInt()
+                      if(loudnessNew > loudnessOld+750){
+                          Toast.makeText(applicationContext, "jebło", Toast.LENGTH_LONG).show()
+                      }
+                      loudnessOld = loudnessNew
+                  }
+              }
           }
             speedXOld = speedXNew
             gyroZOld = gyroZNew
             gyroXOld = gyroXNew
-            loudnessOld = loudnessNew
+
 
         }else{
             speedXOld = speedXNew
             gyroZOld = gyroZNew
             gyroXOld = gyroXNew
-            loudnessOld = loudnessNew
+            loudnessOld = Amp.getAmplitudeEMA().toInt()
         }
 
 
