@@ -36,6 +36,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var timestamp: Float = 0f
 
 
+    var speedXOld:Double = 0.0
+    var gyroZOld = 0
+    var gyroXOld = 0
+    var loudnessOld = 0
+
+
     val runnable = Runnable {
         updateTv()
         determineTap()
@@ -98,7 +104,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         having every X,Y and Z acceleration will help us determine
         whether the phone was tapper from the side, top, botton or back
          */
-        tvX.text = linear_acceleration[0].toInt().toString()
+        tvX.text = gravity[0].toString()
         tvY.text = "laY: " + linear_acceleration[1].toInt().toString()
         tvZ.text = "laZ: " + linear_acceleration[2].toInt().toString()
 
@@ -121,6 +127,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 tvgX.text = axisX2.toString()
                 tvgY.text = axisY2.toString()
                 tvgZ.text = axisZ2.toString()
+
+
                 // Calculate the angular speed of the sample
                 val omegaMagnitude: Float = sqrt(axisX * axisX + axisY * axisY + axisZ * axisZ)
 
@@ -146,9 +154,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 deltaRotationVector[2] = sinThetaOverTwo * axisZ
                 deltaRotationVector[3] = cosThetaOverTwo
 
-
-
-
             }
             timestamp = event?.timestamp?.toFloat() ?: 0f
             val deltaRotationMatrix = FloatArray(9) { 0f }
@@ -156,13 +161,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             // User code should concatenate the delta rotation we computed with the current rotation
             // in order to get the updated rotation.
             // rotationCurrent = rotationCurrent * deltaRotationMatrix;
-
-            //displaying the output
-
-               // deltaRotationVector[0] = deltaRotationVector[0] * deltaRotationMatrix
-          //  tvgX.text =
-
-
 
 
     }
@@ -188,25 +186,50 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         Amp.stopRecorder()
     }
     fun updateTv(){
+        //dB
         val dBlvl = Amp.soundDb().toInt()
         tv_dBells.text = dBlvl.toString()
-
+            // amplitude EMA
         val ampLvl = Amp.getAmplitudeEMA().toInt()
-
-        tv_amplifier.text = "AmplitudeEMA: " + ampLvl.toString()
+        tv_amplitude.text =ampLvl.toString()
 
     }
 
+
+    // this happens once every 100ms
     fun determineTap(){
 
+        var speedXNew = (tvX.text as String).toDouble()
+        var gyroZNew = Integer.parseInt(tvgZ.text as String)
+        var gyroXNew = Integer.parseInt(tvgX.text as String)
+        var loudnessNew = Amp.getAmplitudeEMA().toInt()
 
-        var speedX = Integer.parseInt(tvX.text as String)
-        var loudness = Integer.parseInt(tv_dBells.text as String)
+        //compares curent stats with stats from 100ms ago
+        if(loudnessOld != 0){
+          if((speedXNew > (speedXOld+0.2))  && loudnessNew > (loudnessOld+750) && (gyroXNew > gyroXOld || gyroZNew > gyroXOld)){
 
-        if(speedX > 2 && loudness > 60){
+              Toast.makeText(this, "jebło", Toast.LENGTH_LONG).show()
+          }
+            speedXOld = speedXNew
+            gyroZOld = gyroZNew
+            gyroXOld = gyroXNew
+            loudnessOld = loudnessNew
+
+        }else{
+            speedXOld = speedXNew
+            gyroZOld = gyroZNew
+            gyroXOld = gyroXNew
+            loudnessOld = loudnessNew
+        }
+
+
+        /*
+        if((speedXNew > 1.5 || speedXNew < -1.5) && loudnessNew > 60 &&(gyroXNew > 3 || gyroZNew > 3)){
             Toast.makeText(this, "jebło", Toast.LENGTH_LONG).show()
 
         }
+
+         */
     }
 
 
